@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import personService from './services/persons'
+import Notification from './components/Notification'
 
 const Person = ({ person, removePerson }) => {
   return (
@@ -67,6 +68,10 @@ const App = () => {
   const [newName, setNewName] = useState('')
   const [newNumber, setNewNumber] = useState('')
   const [filter, setFilter] = useState('')
+  const [notification, setNotification] = useState({
+    message: null,
+    type: 'success'
+  })
 
   useEffect(() => {
     personService
@@ -76,18 +81,32 @@ const App = () => {
       })
   }, [])
 
+  // function for showing notification
+  const showNotification = (message, type = 'success', duration = 5000) => {
+    setNotification({ message, type})
+
+    if (duration > 0) {
+      setTimeout(() => {
+        setNotification({ message: null, type: 'success'})
+      }, duration)
+    }
+  }
+
   const addPerson = (event) => {
     event.preventDefault()
 
+    // check for dublicate person
     const duplicatePerson = persons.find(person =>
       person.name.toLowerCase() === newName.toLowerCase()
     )
 
+    // If duplicate person, ask confirmation for updating phone number
     if (duplicatePerson) {
       const confirmUpdate = window.confirm(
-        `${newName} is already added to phonebook. Replace the oldnumber with new one?`
+        `${newName} is already added to phonebook. Replace the old number with new one ?`
       )
 
+      // When confirmed, update new number
       if (confirmUpdate) {
         const updatedPerson = { ...duplicatePerson, number: newNumber }
 
@@ -97,11 +116,18 @@ const App = () => {
             setPersons(persons.map(person =>
               person.id === duplicatePerson.id ? response.data : person
             ))
+            showNotification(
+              `${newName}'s number has succesfully been updated`, 'success'
+            )
           })
-          .catch(error => {
-            alert(`Failed to update ${newName}'s number.`, error)
+          // display error message when failed to update number
+          .catch(() => {
+            showNotification(
+              `Failed to update ${newName}'s number`, 'error'
+            )
           })
       }
+      // If no duplicate person, create new person
     } else {
       const personObject = {
         name: newName,
@@ -111,15 +137,24 @@ const App = () => {
           .create(personObject)
           .then(response => {
             setPersons(persons.concat(response.data))
+            // Display success message
+            showNotification(
+              `Added ${newName}`, 'success'
+            )
           })
-          .catch(error => {
-            alert(`Failed to add ${newName}.`, error)
+          // display error in case of failed action
+          .catch(() => {
+            showNotification(
+              `Failed to add ${newName}.`, 'error'
+            )
           })
     }
+    // reset input field
     setNewName('')
     setNewNumber('')
   }
 
+  // handle deletion of person
   const removePerson = (id) => {
     const person = persons.find(p => p.id === id)
 
@@ -128,9 +163,14 @@ const App = () => {
           .destroy(id)
           .then(() => {
             setPersons(persons.filter(p => p.id !== id))
+            showNotification(
+              `Deleted ${person.name}`, 'success'
+            )
           })
-        .catch(error => {
-          alert(`Failed to delete ${person.name}`, error)
+        .catch(() => {
+          showNotification(
+            `${person.name} has already been removed from server`, 'error'
+          )
         })
     }
   }
@@ -156,6 +196,9 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification message={notification.message}
+        type={notification.type}
+      />
       <Filter filter={filter} handleFilterChange={handleFilterChange} />
       <PersonForm
         addPerson={addPerson}
